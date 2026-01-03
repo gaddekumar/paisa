@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "paisa - Investment Tracker",
+  title: "Wealth Math - Investment Tracker",
   description: "Track your investments and plan for retirement",
 };
 
