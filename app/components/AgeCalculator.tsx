@@ -17,6 +17,31 @@ export default function AgeCalculator({ onYearsToRetirementChange, onAgeSetChang
   const [currentAge, setCurrentAge] = useState<number | null>(null);
   const [retirementAge, setRetirementAge] = useState<number | null>(null);
   const [yearsToRetirement, setYearsToRetirement] = useState<number | null>(null);
+  const [hasTouchedRetirementAge, setHasTouchedRetirementAge] = useState(false);
+
+  const minRetirementAge = currentAge ?? 50;
+  const maxRetirementAge = Math.max(80, minRetirementAge);
+
+  useEffect(() => {
+    // If DOB changes, treat retirement age as "not set by user" so we can re-apply defaults.
+    setHasTouchedRetirementAge(false);
+  }, [dateOfBirth]);
+
+  useEffect(() => {
+    if (currentAge === null) return;
+    if (!hasTouchedRetirementAge) {
+      const defaultRetirementAge = currentAge < 65 ? 65 : 80;
+      const clampedDefault = Math.max(currentAge, defaultRetirementAge);
+      const nextValue = String(clampedDefault);
+      if (retirementAgeInput !== nextValue) setRetirementAgeInput(nextValue);
+      return;
+    }
+
+    const retirement = parseInt(retirementAgeInput || String(currentAge));
+    if (isNaN(retirement) || retirement < currentAge) {
+      setRetirementAgeInput(String(currentAge));
+    }
+  }, [currentAge, retirementAgeInput, hasTouchedRetirementAge]);
 
   useEffect(() => {
     onCurrencyChange?.(currency);
@@ -100,13 +125,32 @@ export default function AgeCalculator({ onYearsToRetirementChange, onAgeSetChang
                 type="range"
                 id="retirement-age"
                 value={retirementAgeInput}
-                onChange={(e) => setRetirementAgeInput(e.target.value)}
+                onChange={(e) => {
+                  setHasTouchedRetirementAge(true);
+                  setRetirementAgeInput(e.target.value);
+                }}
                 className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
                 style={{
-                  background: `linear-gradient(to right, #2563eb 0%, #2563eb ${((parseInt(retirementAgeInput || '65') - 50) / 30) * 100}%, #e5e7eb ${((parseInt(retirementAgeInput || '65') - 50) / 30) * 100}%, #e5e7eb 100%)`
+                  background: `linear-gradient(to right, #2563eb 0%, #2563eb ${
+                    (() => {
+                      const value = parseInt(retirementAgeInput || '65');
+                      const range = maxRetirementAge - minRetirementAge;
+                      if (range <= 0) return 100;
+                      const pct = ((value - minRetirementAge) / range) * 100;
+                      return Math.min(100, Math.max(0, pct));
+                    })()
+                  }%, #e5e7eb ${
+                    (() => {
+                      const value = parseInt(retirementAgeInput || '65');
+                      const range = maxRetirementAge - minRetirementAge;
+                      if (range <= 0) return 100;
+                      const pct = ((value - minRetirementAge) / range) * 100;
+                      return Math.min(100, Math.max(0, pct));
+                    })()
+                  }%, #e5e7eb 100%)`
                 }}
-                min="50"
-                max="80"
+                min={minRetirementAge}
+                max={maxRetirementAge}
                 step="1"
               />
             </div>

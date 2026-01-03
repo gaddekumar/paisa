@@ -5,16 +5,14 @@ import InvestmentModal from './components/InvestmentModal';
 import AgeCalculator from './components/AgeCalculator';
 import { formatCurrency } from './utils/currency';
 import { calculateEquity, calculateRemainingLoanBalance } from './utils/loan';
-import { calculateDepreciatedValue } from './utils/depreciation';
 
 export interface Investment {
   id: string;
-  type: 'portfolio' | 'real-estate' | 'gold' | 'loan' | 'car-loan';
+  type: 'portfolio' | 'real-estate' | 'loan';
   name: string;
   amount: number;
   date: string;
   cagr: number;
-  notes?: string;
   // Real estate specific fields
   downpayment?: number;
   houseCost?: number;
@@ -24,20 +22,101 @@ export interface Investment {
   loanAmount?: number;
   loanInterestRate?: number; // as percentage (e.g., 5 for 5%)
   loanTermYears?: number; // in years
-  // Car loan specific fields
-  carValue?: number;
-  depreciationRate?: number; // as percentage per year (e.g., 15 for 15%)
 }
 
 export default function Home() {
   const [investments, setInvestments] = useState<Investment[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [investmentType, setInvestmentType] = useState<'portfolio' | 'real-estate' | 'gold' | 'loan' | 'car-loan' | null>(null);
+  const [investmentType, setInvestmentType] = useState<'portfolio' | 'real-estate' | 'loan' | null>(null);
   const [editingInvestment, setEditingInvestment] = useState<Investment | null>(null);
   const [yearsToRetirement, setYearsToRetirement] = useState<number | null>(null);
   const [isAgeSet, setIsAgeSet] = useState(false);
   const [selectedCurrency, setSelectedCurrency] = useState('USD');
   const [inflationRate, setInflationRate] = useState(3);
+
+  const projectedValueAtRetirement =
+    yearsToRetirement === null
+      ? null
+      : investments.reduce((sum, inv) => {
+          if (inv.type === 'loan') return sum; // Loans are liabilities, not assets
+
+          if (
+            inv.type === 'real-estate' &&
+            inv.downpayment !== undefined &&
+            inv.houseCost !== undefined &&
+            inv.loanTerm !== undefined &&
+            inv.annualInterestRate !== undefined
+          ) {
+            // For real estate, calculate future equity at retirement horizon
+            const loanAmount = inv.houseCost - inv.downpayment;
+            const purchaseDateObj = new Date(inv.date);
+            const today = new Date();
+            const yearsElapsed = (today.getTime() - purchaseDateObj.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
+            const yearsAtRetirement = yearsElapsed + yearsToRetirement;
+            const futureValue = inv.houseCost * Math.pow(1 + inv.cagr / 100, yearsAtRetirement);
+            const remainingLoanAtRetirement = calculateRemainingLoanBalance(
+              loanAmount,
+              inv.annualInterestRate,
+              inv.loanTerm,
+              yearsAtRetirement
+            );
+            const futureEquity = futureValue - remainingLoanAtRetirement;
+            return sum + Math.max(0, futureEquity);
+          }
+
+          if (inv.type === 'portfolio') {
+            const futureValue = inv.amount * Math.pow(1 + inv.cagr / 100, yearsToRetirement);
+            return sum + futureValue;
+          }
+
+          return sum;
+        }, 0);
+
+  const inflationAdjustedValue =
+    yearsToRetirement === null || projectedValueAtRetirement === null
+      ? null
+      : projectedValueAtRetirement / Math.pow(1 + inflationRate / 100, yearsToRetirement);
+
+  const liabilityAtRetirement =
+    yearsToRetirement === null
+      ? null
+      : investments.reduce((sum, inv) => {
+          if (
+            inv.type === 'loan' &&
+            inv.loanAmount !== undefined &&
+            inv.loanInterestRate !== undefined &&
+            inv.loanTermYears !== undefined
+          ) {
+            const loanDateObj = new Date(inv.date);
+            const today = new Date();
+            const yearsElapsed = (today.getTime() - loanDateObj.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
+            const yearsAtRetirement = yearsElapsed + yearsToRetirement;
+            return (
+              sum +
+              calculateRemainingLoanBalance(inv.loanAmount, inv.loanInterestRate, inv.loanTermYears, yearsAtRetirement)
+            );
+          }
+
+          if (
+            inv.type === 'real-estate' &&
+            inv.downpayment !== undefined &&
+            inv.houseCost !== undefined &&
+            inv.loanTerm !== undefined &&
+            inv.annualInterestRate !== undefined
+          ) {
+            const loanAmount = inv.houseCost - inv.downpayment;
+            const purchaseDateObj = new Date(inv.date);
+            const today = new Date();
+            const yearsElapsed = (today.getTime() - purchaseDateObj.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
+            const yearsAtRetirement = yearsElapsed + yearsToRetirement;
+            return (
+              sum +
+              calculateRemainingLoanBalance(loanAmount, inv.annualInterestRate, inv.loanTerm, yearsAtRetirement)
+            );
+          }
+
+          return sum;
+        }, 0);
 
   const handleAddInvestment = (investment: Omit<Investment, 'id'>) => {
     const newInvestment: Investment = {
@@ -77,7 +156,7 @@ export default function Home() {
     ));
   };
 
-  const openModal = (type: 'portfolio' | 'real-estate' | 'gold' | 'loan' | 'car-loan') => {
+  const openModal = (type: 'portfolio' | 'real-estate' | 'loan') => {
     setInvestmentType(type);
     setIsModalOpen(true);
   };
@@ -112,22 +191,10 @@ export default function Home() {
             Add Real Estate Investment
           </button>
           <button
-            onClick={() => openModal('gold')}
-            className="w-full px-4 py-3 text-left bg-yellow-50 hover:bg-yellow-100 text-yellow-700 rounded-lg font-medium transition-colors"
-          >
-            Add Gold Investment
-          </button>
-          <button
             onClick={() => openModal('loan')}
             className="w-full px-4 py-3 text-left bg-red-50 hover:bg-red-100 text-red-700 rounded-lg font-medium transition-colors"
           >
             Add Loan
-          </button>
-          <button
-            onClick={() => openModal('car-loan')}
-            className="w-full px-4 py-3 text-left bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-lg font-medium transition-colors"
-          >
-            Add Car Loan
           </button>
         </aside>
 
@@ -145,212 +212,32 @@ export default function Home() {
             
             {/* Total Portfolio Value */}
             <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg p-4 border border-blue-200 min-w-[240px]">
-              <div className="flex flex-col space-y-3">
-                {yearsToRetirement !== null && yearsToRetirement > 0 ? (
-                  <>
-                    <div>
-                      <span className="text-xs font-medium text-gray-700">Projected Value at Retirement</span>
-                      <div className="text-2xl font-bold text-green-700">
-                        {(() => {
-                          const projectedValue = investments.reduce((sum, inv) => {
-                            if (inv.type === 'loan' || inv.type === 'car-loan') return sum; // Loans are liabilities, not assets
-                            if (inv.type === 'real-estate' && inv.downpayment !== undefined && inv.houseCost !== undefined && 
-                                inv.loanTerm !== undefined && inv.annualInterestRate !== undefined) {
-                              // For real estate, calculate future equity
-                              const futureValue = inv.amount * Math.pow(1 + inv.cagr / 100, yearsToRetirement);
-                              const loanAmount = inv.houseCost - inv.downpayment;
-                              const purchaseDateObj = new Date(inv.date);
-                              const today = new Date();
-                              const yearsElapsed = (today.getTime() - purchaseDateObj.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
-                              const yearsAtRetirement = yearsElapsed + yearsToRetirement;
-                              const remainingLoanAtRetirement = calculateRemainingLoanBalance(
-                                loanAmount,
-                                inv.annualInterestRate,
-                                inv.loanTerm,
-                                yearsAtRetirement
-                              );
-                              const futureEquity = futureValue - remainingLoanAtRetirement;
-                              return sum + Math.max(0, futureEquity);
-                            } else if (inv.type === 'portfolio' || inv.type === 'gold') {
-                              const futureValue = inv.amount * Math.pow(1 + inv.cagr / 100, yearsToRetirement);
-                              return sum + futureValue;
-                            }
-                            return sum;
-                          }, 0);
-                          return formatCurrency(projectedValue, selectedCurrency);
-                        })()}
-                      </div>
-                    </div>
-                    <div className="pt-2 border-t border-blue-200">
-                      <span className="text-xs font-medium text-gray-700">In Today's Money (Adjusted for Inflation)</span>
-                      <div className="text-xl font-bold text-blue-700">
-                        {(() => {
-                          const projectedValue = investments.reduce((sum, inv) => {
-                            if (inv.type === 'loan' || inv.type === 'car-loan') return sum;
-                            if (inv.type === 'real-estate' && inv.downpayment !== undefined && inv.houseCost !== undefined && 
-                                inv.loanTerm !== undefined && inv.annualInterestRate !== undefined) {
-                              const futureValue = inv.amount * Math.pow(1 + inv.cagr / 100, yearsToRetirement);
-                              const loanAmount = inv.houseCost - inv.downpayment;
-                              const purchaseDateObj = new Date(inv.date);
-                              const today = new Date();
-                              const yearsElapsed = (today.getTime() - purchaseDateObj.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
-                              const yearsAtRetirement = yearsElapsed + yearsToRetirement;
-                              const remainingLoanAtRetirement = calculateRemainingLoanBalance(
-                                loanAmount,
-                                inv.annualInterestRate,
-                                inv.loanTerm,
-                                yearsAtRetirement
-                              );
-                              const futureEquity = futureValue - remainingLoanAtRetirement;
-                              return sum + Math.max(0, futureEquity);
-                            } else if (inv.type === 'portfolio' || inv.type === 'gold') {
-                              const futureValue = inv.amount * Math.pow(1 + inv.cagr / 100, yearsToRetirement);
-                              return sum + futureValue;
-                            }
-                            return sum;
-                          }, 0);
-                          // Adjust for inflation: divide by (1 + inflation/100)^years
-                          const inflationAdjustedValue = projectedValue / Math.pow(1 + inflationRate / 100, yearsToRetirement);
-                          return formatCurrency(inflationAdjustedValue, selectedCurrency);
-                        })()}
-                      </div>
-                    </div>
-                    {/* Total Liability at Retirement */}
-                    {(investments.some(inv => inv.type === 'real-estate' && inv.loanTerm !== undefined) || 
-                      investments.some(inv => inv.type === 'loan') ||
-                      investments.some(inv => inv.type === 'car-loan')) && (
-                      <div className="pt-2 border-t border-blue-200">
-                        <span className="text-xs font-medium text-gray-700">Total Liability at Retirement</span>
-                        <div className="text-lg font-bold text-red-700">
-                          {formatCurrency(investments.reduce((sum, inv) => {
-                            if (inv.type === 'loan' && inv.loanAmount !== undefined && inv.loanInterestRate !== undefined && 
-                                inv.loanTermYears !== undefined) {
-                              const loanDateObj = new Date(inv.date);
-                              const today = new Date();
-                              const yearsElapsed = (today.getTime() - loanDateObj.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
-                              const yearsAtRetirement = yearsElapsed + yearsToRetirement;
-                              const remainingLoanAtRetirement = calculateRemainingLoanBalance(
-                                inv.loanAmount,
-                                inv.loanInterestRate,
-                                inv.loanTermYears,
-                                yearsAtRetirement
-                              );
-                              return sum + remainingLoanAtRetirement;
-                            }
-                            if (inv.type === 'car-loan' && inv.loanAmount !== undefined && inv.loanInterestRate !== undefined && 
-                                inv.loanTermYears !== undefined) {
-                              const carDateObj = new Date(inv.date);
-                              const today = new Date();
-                              const yearsElapsed = (today.getTime() - carDateObj.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
-                              const yearsAtRetirement = yearsElapsed + yearsToRetirement;
-                              const remainingLoanAtRetirement = calculateRemainingLoanBalance(
-                                inv.loanAmount,
-                                inv.loanInterestRate,
-                                inv.loanTermYears,
-                                yearsAtRetirement
-                              );
-                              return sum + remainingLoanAtRetirement;
-                            }
-                            if (inv.type === 'real-estate' && inv.downpayment !== undefined && inv.houseCost !== undefined && 
-                                inv.loanTerm !== undefined && inv.annualInterestRate !== undefined) {
-                              const loanAmount = inv.houseCost - inv.downpayment;
-                              const purchaseDateObj = new Date(inv.date);
-                              const today = new Date();
-                              const yearsElapsed = (today.getTime() - purchaseDateObj.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
-                              const yearsAtRetirement = yearsElapsed + yearsToRetirement;
-                              const remainingLoanAtRetirement = calculateRemainingLoanBalance(
-                                loanAmount,
-                                inv.annualInterestRate,
-                                inv.loanTerm,
-                                yearsAtRetirement
-                              );
-                              return sum + remainingLoanAtRetirement;
-                            }
-                            return sum;
-                          }, 0), selectedCurrency)}
-                        </div>
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    <div>
-                      <span className="text-xs font-medium text-gray-700">Projected Value</span>
-                      <div className="text-2xl font-bold text-blue-700">
-                        {formatCurrency(investments.reduce((sum, inv) => {
-                          if (inv.type === 'loan' || inv.type === 'car-loan') return sum; // Loans are liabilities, not assets
-                          if (inv.type === 'real-estate' && inv.downpayment !== undefined && inv.houseCost !== undefined && 
-                              inv.loanTerm !== undefined && inv.annualInterestRate !== undefined) {
-                            // For real estate, use equity
-                            const equity = calculateEquity(
-                              inv.amount,
-                              inv.downpayment,
-                              inv.houseCost,
-                              inv.annualInterestRate,
-                              inv.loanTerm,
-                              inv.date
-                            );
-                            return sum + equity;
-                          } else {
-                            return sum + inv.amount;
-                          }
-                        }, 0), selectedCurrency)}
-                      </div>
-                    </div>
-                    {/* Total Liability */}
-                    {(investments.some(inv => inv.type === 'real-estate' && inv.loanTerm !== undefined) || 
-                      investments.some(inv => inv.type === 'loan') ||
-                      investments.some(inv => inv.type === 'car-loan')) && (
-                      <div className="pt-2 border-t border-blue-200">
-                        <span className="text-xs font-medium text-gray-700">Total Liability</span>
-                        <div className="text-lg font-bold text-red-700">
-                          {formatCurrency(investments.reduce((sum, inv) => {
-                            if (inv.type === 'loan' && inv.loanAmount !== undefined && inv.loanInterestRate !== undefined && 
-                                inv.loanTermYears !== undefined) {
-                              const loanDateObj = new Date(inv.date);
-                              const today = new Date();
-                              const yearsElapsed = (today.getTime() - loanDateObj.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
-                              const remainingLoan = calculateRemainingLoanBalance(
-                                inv.loanAmount,
-                                inv.loanInterestRate,
-                                inv.loanTermYears,
-                                yearsElapsed
-                              );
-                              return sum + remainingLoan;
-                            }
-                            if (inv.type === 'car-loan' && inv.loanAmount !== undefined && inv.loanInterestRate !== undefined && 
-                                inv.loanTermYears !== undefined) {
-                              const carDateObj = new Date(inv.date);
-                              const today = new Date();
-                              const yearsElapsed = (today.getTime() - carDateObj.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
-                              const remainingLoan = calculateRemainingLoanBalance(
-                                inv.loanAmount,
-                                inv.loanInterestRate,
-                                inv.loanTermYears,
-                                yearsElapsed
-                              );
-                              return sum + remainingLoan;
-                            }
-                            if (inv.type === 'real-estate' && inv.downpayment !== undefined && inv.houseCost !== undefined && 
-                                inv.loanTerm !== undefined && inv.annualInterestRate !== undefined) {
-                              const loanAmount = inv.houseCost - inv.downpayment;
-                              const purchaseDateObj = new Date(inv.date);
-                              const today = new Date();
-                              const yearsElapsed = (today.getTime() - purchaseDateObj.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
-                              const remainingLoan = calculateRemainingLoanBalance(
-                                loanAmount,
-                                inv.annualInterestRate,
-                                inv.loanTerm,
-                                yearsElapsed
-                              );
-                              return sum + remainingLoan;
-                            }
-                            return sum;
-                          }, 0), selectedCurrency)}
-                        </div>
-                      </div>
-                    )}
-                  </>
+              <div className="flex flex-col gap-3">
+                <div>
+                  <span className="text-xs font-medium text-gray-700">Projected Value at Retirement</span>
+                  <div className="text-2xl font-bold text-green-700">
+                    {projectedValueAtRetirement === null ? '—' : formatCurrency(projectedValueAtRetirement, selectedCurrency)}
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-blue-200">
+                  <span className="text-xs font-medium text-gray-700">In Today&apos;s Money (Adjusted for Inflation)</span>
+                  <div className="text-xl font-bold text-blue-700">
+                    {inflationAdjustedValue === null ? '—' : formatCurrency(inflationAdjustedValue, selectedCurrency)}
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-blue-200">
+                  <span className="text-xs font-medium text-gray-700">Total Liability at Retirement</span>
+                  <div className="text-xl font-bold text-red-700">
+                    {liabilityAtRetirement === null ? '—' : formatCurrency(liabilityAtRetirement, selectedCurrency)}
+                  </div>
+                </div>
+
+                {yearsToRetirement === null && (
+                  <div className="pt-2 border-t border-blue-200 text-[11px] text-gray-600">
+                    Set Date of Birth and retirement age to see values.
+                  </div>
                 )}
               </div>
             </div>
@@ -381,10 +268,6 @@ export default function Home() {
                               ? 'bg-blue-100 text-blue-700'
                               : investment.type === 'real-estate'
                               ? 'bg-green-100 text-green-700'
-                              : investment.type === 'gold'
-                              ? 'bg-yellow-100 text-yellow-700'
-                              : investment.type === 'car-loan'
-                              ? 'bg-purple-100 text-purple-700'
                               : 'bg-red-100 text-red-700'
                           }`}
                         >
@@ -392,10 +275,6 @@ export default function Home() {
                             ? 'Portfolio'
                             : investment.type === 'real-estate'
                             ? 'Real Estate'
-                            : investment.type === 'gold'
-                            ? 'Gold'
-                            : investment.type === 'car-loan'
-                            ? 'Car Loan'
                             : 'Loan'}
                         </span>
                         <h3 className="font-semibold text-gray-900">{investment.name}</h3>
@@ -436,6 +315,43 @@ export default function Home() {
                             />
                           </div>
                         )}
+                        {investment.type === 'real-estate' && (
+                          <div className="flex items-center gap-2 ml-auto">
+                            <span className="text-xs text-gray-500">Appreciation:</span>
+                            <input
+                              type="number"
+                              value={investment.cagr}
+                              onChange={(e) => {
+                                const newRate = parseFloat(e.target.value);
+                                if (!isNaN(newRate) && newRate >= 0 && newRate <= 25) {
+                                  handleUpdateCAGR(investment.id, newRate);
+                                }
+                              }}
+                              className="w-16 px-2 py-1 text-xs font-bold text-green-700 border border-gray-300 rounded focus:ring-1 focus:ring-green-500 focus:border-transparent"
+                              step="0.1"
+                              min="0"
+                              max="25"
+                            />
+                            <span className="text-xs text-gray-500">%</span>
+                            <input
+                              type="range"
+                              value={investment.cagr}
+                              onChange={(e) => {
+                                const newRate = parseFloat(e.target.value);
+                                if (!isNaN(newRate)) {
+                                  handleUpdateCAGR(investment.id, newRate);
+                                }
+                              }}
+                              className="w-24 h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                              style={{
+                                background: `linear-gradient(to right, #16a34a 0%, #16a34a ${((investment.cagr - 0) / 25) * 100}%, #e5e7eb ${((investment.cagr - 0) / 25) * 100}%, #e5e7eb 100%)`
+                              }}
+                              min="0"
+                              max="25"
+                              step="0.1"
+                            />
+                          </div>
+                        )}
                       </div>
                       {investment.type === 'loan' ? (
                         <>
@@ -468,65 +384,13 @@ export default function Home() {
                             </p>
                           )}
                         </>
-                      ) : investment.type === 'car-loan' ? (
-                        <>
-                          <div className="flex items-center gap-4 mb-2">
-                            <div>
-                              <p className="text-xs text-gray-500">Car Value</p>
-                              <p className="text-lg font-bold text-purple-700">
-                                {investment.carValue !== undefined && investment.depreciationRate !== undefined ? formatCurrency(
-                                  calculateDepreciatedValue(
-                                    investment.carValue,
-                                    investment.depreciationRate,
-                                    (new Date().getTime() - new Date(investment.date).getTime()) / (1000 * 60 * 60 * 24 * 365.25)
-                                  ),
-                                  selectedCurrency
-                                ) : formatCurrency(0, selectedCurrency)}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-gray-500">Loan Amount</p>
-                              <p className="text-lg font-bold text-red-700">
-                                {formatCurrency(investment.loanAmount || 0, selectedCurrency)}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-4 mt-1 text-sm">
-                            <span className="text-gray-500">
-                              Interest Rate: <span className="font-semibold text-gray-700">{investment.loanInterestRate}%</span>
-                            </span>
-                            <span className="text-gray-500">
-                              Term: <span className="font-semibold text-gray-700">{investment.loanTermYears} years</span>
-                            </span>
-                            <span className="text-gray-500">
-                              Depreciation: <span className="font-semibold text-gray-700">{investment.depreciationRate}%/yr</span>
-                            </span>
-                            <span className="text-gray-500">
-                              Date: {new Date(investment.date).toLocaleDateString()}
-                            </span>
-                          </div>
-                          {investment.loanAmount !== undefined && investment.loanInterestRate !== undefined && 
-                           investment.loanTermYears !== undefined && (
-                            <p className="text-sm text-red-600 mt-1">
-                              Remaining Loan: {formatCurrency(
-                                calculateRemainingLoanBalance(
-                                  investment.loanAmount,
-                                  investment.loanInterestRate,
-                                  investment.loanTermYears,
-                                  (new Date().getTime() - new Date(investment.date).getTime()) / (1000 * 60 * 60 * 24 * 365.25)
-                                ),
-                                selectedCurrency
-                              )}
-                            </p>
-                          )}
-                        </>
                       ) : (
                         <>
                           <p className="text-lg font-bold text-gray-800">
                             {formatCurrency(investment.amount, selectedCurrency)}
                           </p>
                           <div className="flex items-center gap-4 mt-1 text-sm">
-                            {investment.type !== 'portfolio' && (
+                            {investment.type !== 'portfolio' && investment.type !== 'real-estate' && (
                               <span className="text-gray-500">
                                 CAGR: <span className="font-semibold text-gray-700">{investment.cagr}%</span>
                               </span>
@@ -538,9 +402,6 @@ export default function Home() {
                             )}
                           </div>
                         </>
-                      )}
-                      {investment.notes && (
-                        <p className="text-sm text-gray-600 mt-2">{investment.notes}</p>
                       )}
                     </div>
                     <div className="flex gap-2 ml-4">
