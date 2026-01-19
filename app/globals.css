@@ -52,3 +52,60 @@ input[type="range"].slider::-moz-range-thumb {
   border: 2px solid white;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
+
+/* Large slider styles for retirement age */
+input[type="range"].slider-large {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 8px;
+}
+
+input[type="range"].slider-large::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #2563eb;
+  cursor: pointer;
+  border: 3px solid white;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+  margin-top: -10px;
+}
+
+input[type="range"].slider-large::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4);
+}
+
+input[type="range"].slider-large::-webkit-slider-thumb:active {
+  transform: scale(1.2);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+}
+
+input[type="range"].slider-large::-moz-range-thumb {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #2563eb;
+  cursor: pointer;
+  border: 3px solid white;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+input[type="range"].slider-large::-moz-range-thumb:hover {
+  transform: scale(1.15);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4);
+}
+
+input[type="range"].slider-large::-moz-range-thumb:active {
+  transform: scale(1.2);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+}
+
+input[type="range"].slider-large::-moz-range-track {
+  height: 8px;
+  background: transparent;
+}

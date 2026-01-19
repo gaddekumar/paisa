@@ -135,15 +135,15 @@ export default function InvestmentModal({ type, onClose, onSubmit, isAgeSet, cur
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
-                        <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-                            Name / Symbol
+                        <label htmlFor="name" className="block text-base font-medium text-gray-700 mb-2">
+                            {type === 'portfolio' || type === 'real-estate' ? 'Name' : 'Name / Symbol'}
                         </label>
                         <input
                             type="text"
                             id="name"
                             value={name}
                             onChange={(e) => setName(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="w-full px-4 py-3 text-base border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                             placeholder={
                                 type === 'portfolio'
                                     ? 'e.g., AAPL, TSLA'
@@ -157,7 +157,7 @@ export default function InvestmentModal({ type, onClose, onSubmit, isAgeSet, cur
 
                     {type !== 'loan' && type !== 'real-estate' && (
                         <div>
-                            <label htmlFor="amount" className="block text-sm font-medium text-gray-700 mb-1">
+                            <label htmlFor="amount" className="block text-base font-medium text-gray-700 mb-2">
                                 {`Current Value (${currencySymbols[currency] || currency})`}
                             </label>
                             <input
@@ -165,7 +165,7 @@ export default function InvestmentModal({ type, onClose, onSubmit, isAgeSet, cur
                                 id="amount"
                                 value={amount}
                                 onChange={(e) => setAmount(e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                className="w-full px-4 py-3 text-base border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                 placeholder="0.00"
                                 step="0.01"
                                 min="0"
@@ -177,7 +177,7 @@ export default function InvestmentModal({ type, onClose, onSubmit, isAgeSet, cur
                     {type === 'real-estate' && (
                         <>
                             <div>
-                                <label htmlFor="downpayment" className="block text-sm font-medium text-gray-700 mb-1">
+                                <label htmlFor="downpayment" className="block text-base font-medium text-gray-700 mb-2">
                                     Downpayment ({currencySymbols[currency] || currency})
                                 </label>
                                 <input
@@ -185,7 +185,7 @@ export default function InvestmentModal({ type, onClose, onSubmit, isAgeSet, cur
                                     id="downpayment"
                                     value={downpayment}
                                     onChange={(e) => setDownpayment(e.target.value)}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    className="w-full px-4 py-3 text-base border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                     placeholder="0.00"
                                     step="0.01"
                                     min="0"
@@ -193,7 +193,7 @@ export default function InvestmentModal({ type, onClose, onSubmit, isAgeSet, cur
                                 />
                             </div>
                             <div>
-                                <label htmlFor="houseCost" className="block text-sm font-medium text-gray-700 mb-1">
+                                <label htmlFor="houseCost" className="block text-base font-medium text-gray-700 mb-2">
                                     House purchase price ({currencySymbols[currency] || currency})
                                 </label>
                                 <input
@@ -201,7 +201,7 @@ export default function InvestmentModal({ type, onClose, onSubmit, isAgeSet, cur
                                     id="houseCost"
                                     value={houseCost}
                                     onChange={(e) => setHouseCost(e.target.value)}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    className="w-full px-4 py-3 text-base border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                     placeholder="0.00"
                                     step="0.01"
                                     min="0"
@@ -209,7 +209,7 @@ export default function InvestmentModal({ type, onClose, onSubmit, isAgeSet, cur
                                 />
                             </div>
                             <div>
-                                <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-1">
+                                <label htmlFor="date" className="block text-base font-medium text-gray-700 mb-2">
                                     Date Purchased
                                 </label>
                                 <input
@@ -217,12 +217,12 @@ export default function InvestmentModal({ type, onClose, onSubmit, isAgeSet, cur
                                     id="date"
                                     value={date}
                                     onChange={(e) => setDate(e.target.value)}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    className="w-full px-4 py-3 text-base border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                     required
                                 />
                             </div>
                             <div>
-                                <label htmlFor="loanTerm" className="block text-sm font-medium text-gray-700 mb-1">
+                                <label htmlFor="loanTerm" className="block text-base font-medium text-gray-700 mb-2">
                                     Loan Term (Years)
                                 </label>
                                 <input
@@ -230,7 +230,7 @@ export default function InvestmentModal({ type, onClose, onSubmit, isAgeSet, cur
                                     id="loanTerm"
                                     value={loanTerm}
                                     onChange={(e) => setLoanTerm(e.target.value)}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    className="w-full px-4 py-3 text-base border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                     placeholder="30"
                                     step="1"
                                     min="1"
@@ -239,7 +239,7 @@ export default function InvestmentModal({ type, onClose, onSubmit, isAgeSet, cur
                                 />
                             </div>
                             <div>
-                                <label htmlFor="annualInterestRate" className="block text-sm font-medium text-gray-700 mb-1">
+                                <label htmlFor="annualInterestRate" className="block text-base font-medium text-gray-700 mb-2">
                                     Annual Interest Rate (%)
                                 </label>
                                 <input
@@ -247,7 +247,7 @@ export default function InvestmentModal({ type, onClose, onSubmit, isAgeSet, cur
                                     id="annualInterestRate"
                                     value={annualInterestRate}
                                     onChange={(e) => setAnnualInterestRate(e.target.value)}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    className="w-full px-4 py-3 text-base border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                     placeholder="5.0"
                                     step="0.1"
                                     min="0"
@@ -261,7 +261,7 @@ export default function InvestmentModal({ type, onClose, onSubmit, isAgeSet, cur
                     {type === 'loan' && (
                         <>
                             <div>
-                                <label htmlFor="loanAmount" className="block text-sm font-medium text-gray-700 mb-1">
+                                <label htmlFor="loanAmount" className="block text-base font-medium text-gray-700 mb-2">
                                     Loan Amount ({currencySymbols[currency] || currency})
                                 </label>
                                 <input
@@ -269,7 +269,7 @@ export default function InvestmentModal({ type, onClose, onSubmit, isAgeSet, cur
                                     id="loanAmount"
                                     value={loanAmount}
                                     onChange={(e) => setLoanAmount(e.target.value)}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    className="w-full px-4 py-3 text-base border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                     placeholder="0.00"
                                     step="0.01"
                                     min="0"
@@ -277,7 +277,7 @@ export default function InvestmentModal({ type, onClose, onSubmit, isAgeSet, cur
                                 />
                             </div>
                             <div>
-                                <label htmlFor="loanInterestRate" className="block text-sm font-medium text-gray-700 mb-1">
+                                <label htmlFor="loanInterestRate" className="block text-base font-medium text-gray-700 mb-2">
                                     Interest Rate (%)
                                 </label>
                                 <input
@@ -285,7 +285,7 @@ export default function InvestmentModal({ type, onClose, onSubmit, isAgeSet, cur
                                     id="loanInterestRate"
                                     value={loanInterestRate}
                                     onChange={(e) => setLoanInterestRate(e.target.value)}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    className="w-full px-4 py-3 text-base border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                     placeholder="5.0"
                                     step="0.1"
                                     min="0"
@@ -294,7 +294,7 @@ export default function InvestmentModal({ type, onClose, onSubmit, isAgeSet, cur
                                 />
                             </div>
                             <div>
-                                <label htmlFor="loanTermYears" className="block text-sm font-medium text-gray-700 mb-1">
+                                <label htmlFor="loanTermYears" className="block text-base font-medium text-gray-700 mb-2">
                                     Loan Term (Years)
                                 </label>
                                 <input
@@ -302,7 +302,7 @@ export default function InvestmentModal({ type, onClose, onSubmit, isAgeSet, cur
                                     id="loanTermYears"
                                     value={loanTermYears}
                                     onChange={(e) => setLoanTermYears(e.target.value)}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    className="w-full px-4 py-3 text-base border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                     placeholder="5"
                                     step="1"
                                     min="1"
@@ -311,7 +311,7 @@ export default function InvestmentModal({ type, onClose, onSubmit, isAgeSet, cur
                                 />
                             </div>
                             <div>
-                                <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-1">
+                                <label htmlFor="date" className="block text-base font-medium text-gray-700 mb-2">
                                     Loan Start Date
                                 </label>
                                 <input
@@ -319,7 +319,7 @@ export default function InvestmentModal({ type, onClose, onSubmit, isAgeSet, cur
                                     id="date"
                                     value={date}
                                     onChange={(e) => setDate(e.target.value)}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    className="w-full px-4 py-3 text-base border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                     required
                                 />
                             </div>
@@ -328,7 +328,7 @@ export default function InvestmentModal({ type, onClose, onSubmit, isAgeSet, cur
 
                     {type !== 'portfolio' && type !== 'real-estate' && type !== 'loan' && (
                         <div>
-                            <label htmlFor="cagr" className="block text-sm font-medium text-gray-700 mb-1">
+                            <label htmlFor="cagr" className="block text-base font-medium text-gray-700 mb-2">
                                 CAGR (%)
                             </label>
                             <input
@@ -336,7 +336,7 @@ export default function InvestmentModal({ type, onClose, onSubmit, isAgeSet, cur
                                 id="cagr"
                                 value={cagr}
                                 onChange={(e) => setCagr(e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                className="w-full px-4 py-3 text-base border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                 placeholder="10"
                                 step="0.1"
                                 min="0"
@@ -350,13 +350,13 @@ export default function InvestmentModal({ type, onClose, onSubmit, isAgeSet, cur
                         <button
                             type="button"
                             onClick={onClose}
-                            className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                            className="flex-1 px-5 py-3 text-base border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
                         >
                             Cancel
                         </button>
                         <button
                             type="submit"
-                            className={`flex-1 px-4 py-2 rounded-lg text-white font-medium transition-colors ${type === 'portfolio'
+                            className={`flex-1 px-5 py-3 text-base rounded-lg text-white font-medium transition-colors ${type === 'portfolio'
                                 ? 'bg-blue-600 hover:bg-blue-700'
                                 : type === 'real-estate'
                                     ? 'bg-green-600 hover:bg-green-700'

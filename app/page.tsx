@@ -1,10 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import InvestmentModal from './components/InvestmentModal';
 import AgeCalculator from './components/AgeCalculator';
+import WelcomeGuide from './components/WelcomeGuide';
 import { formatCurrency } from './utils/currency';
 import { calculateEquity, calculateRemainingLoanBalance } from './utils/loan';
+import { saveToCookie, loadFromCookie } from './utils/cookies';
 
 export interface Investment {
     id: string;
@@ -29,12 +31,64 @@ export default function Home() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [investmentType, setInvestmentType] = useState<'portfolio' | 'real-estate' | 'loan' | null>(null);
     const [editingInvestment, setEditingInvestment] = useState<Investment | null>(null);
-    const [yearsToRetirement, setYearsToRetirement] = useState<number | null>(null);
-    const [isAgeSet, setIsAgeSet] = useState(false);
-    const [selectedCurrency, setSelectedCurrency] = useState('USD');
-    const [inflationRate, setInflationRate] = useState(3);
-    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [yearsToRetirement, setYearsToRetirement] = useState<number | null>(null);
+  const [isAgeSet, setIsAgeSet] = useState(false);
+  const [selectedCurrency, setSelectedCurrency] = useState('USD');
+  const [inflationRate, setInflationRate] = useState(3);
+  const [retirementAge, setRetirementAge] = useState<number>(65);
+    const [dateOfBirth, setDateOfBirth] = useState('');
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const [isLoaded, setIsLoaded] = useState(false);
+    const [isHelpGuideOpen, setIsHelpGuideOpen] = useState(false);
+
+    // Load state from cookies on mount
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        
+        const savedInvestments = loadFromCookie<Investment[]>('paisa_investments', []);
+        const savedDateOfBirth = loadFromCookie<string>('paisa_dateOfBirth', '');
+        const savedRetirementAge = loadFromCookie<number>('paisa_retirementAge', 65);
+        const savedCurrency = loadFromCookie<string>('paisa_currency', 'USD');
+        const savedInflationRate = loadFromCookie<number>('paisa_inflationRate', 3);
+
+        if (savedInvestments.length > 0) {
+            setInvestments(savedInvestments);
+        }
+        if (savedDateOfBirth) {
+            setDateOfBirth(savedDateOfBirth);
+        }
+        setRetirementAge(savedRetirementAge);
+        setSelectedCurrency(savedCurrency);
+        setInflationRate(savedInflationRate);
+        setIsLoaded(true);
+    }, []);
+
+    // Save investments to cookies whenever they change
+    useEffect(() => {
+        if (!isLoaded) return;
+        saveToCookie('paisa_investments', investments);
+    }, [investments, isLoaded]);
+
+    // Save other state to cookies whenever they change
+    useEffect(() => {
+        if (!isLoaded) return;
+        saveToCookie('paisa_dateOfBirth', dateOfBirth);
+    }, [dateOfBirth, isLoaded]);
+
+    useEffect(() => {
+        if (!isLoaded) return;
+        saveToCookie('paisa_retirementAge', retirementAge);
+    }, [retirementAge, isLoaded]);
+
+    useEffect(() => {
+        if (!isLoaded) return;
+        saveToCookie('paisa_currency', selectedCurrency);
+    }, [selectedCurrency, isLoaded]);
+
+    useEffect(() => {
+        if (!isLoaded) return;
+        saveToCookie('paisa_inflationRate', inflationRate);
+    }, [inflationRate, isLoaded]);
 
     const projectedValueAtRetirement =
         yearsToRetirement === null
@@ -153,9 +207,19 @@ export default function Home() {
     };
 
     const handleUpdateCAGR = (id: string, newCAGR: number) => {
-        setInvestments(investments.map(inv =>
+        setInvestments(prev => prev.map(inv =>
             inv.id === id ? { ...inv, cagr: newCAGR } : inv
         ));
+    };
+
+    const handleIncrementCAGR = (id: string, currentCAGR: number, maxCAGR: number = 30) => {
+        const newCAGR = Math.min(currentCAGR + 0.1, maxCAGR);
+        handleUpdateCAGR(id, parseFloat(newCAGR.toFixed(1)));
+    };
+
+    const handleDecrementCAGR = (id: string, currentCAGR: number) => {
+        const newCAGR = Math.max(currentCAGR - 0.1, 0);
+        handleUpdateCAGR(id, parseFloat(newCAGR.toFixed(1)));
     };
 
     const openModal = (type: 'portfolio' | 'real-estate' | 'loan') => {
@@ -170,7 +234,12 @@ export default function Home() {
     };
 
     return (
-        <div className="flex h-screen flex-col bg-gray-50">
+        <>
+            <WelcomeGuide 
+                isOpen={isHelpGuideOpen}
+                onClose={() => setIsHelpGuideOpen(false)}
+            />
+            <div className="flex h-screen flex-col bg-gray-50">
             {/* Header */}
             <header className="bg-white border-b border-gray-200 px-4 sm:px-6 py-3 sm:py-4 shadow-sm">
                 <div className="flex items-center justify-between gap-3">
@@ -204,8 +273,8 @@ export default function Home() {
                                 strokeLinejoin="round"
                             />
                         </svg>
-                        <h1 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
-                            Wealth Math
+                        <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
+                            Asset Calculator
                         </h1>
                     </div>
                 </div>
@@ -222,127 +291,73 @@ export default function Home() {
                 )}
 
                 {/* Left Sidebar */}
-                <aside className={`${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'} ${isSidebarCollapsed ? 'lg:w-16' : 'lg:w-64'} fixed lg:static inset-y-0 left-0 top-[73px] lg:top-0 z-50 bg-white border-r border-gray-200 transition-all duration-300 flex flex-col ${isSidebarCollapsed ? 'items-center' : ''} p-4 gap-3 w-64`}>
+                <aside className={`${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'} lg:w-64 fixed lg:static inset-y-0 left-0 top-[73px] lg:top-0 z-50 bg-white border-r border-gray-200 transition-all duration-300 flex flex-col p-4 gap-3 w-64`}>
                     <button
-                        onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-                        className={`${isSidebarCollapsed ? 'w-10' : 'w-full'} px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors flex items-center justify-center`}
-                        title={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                        onClick={() => {
+                            openModal('portfolio');
+                            setIsMobileMenuOpen(false);
+                        }}
+                        className="w-full px-4 py-3.5 text-left bg-blue-50 hover:bg-blue-100 active:bg-blue-200 text-blue-700 rounded-lg font-medium text-base transition-colors touch-manipulation"
                     >
-                        <svg
-                            className={`w-5 h-5 transition-transform duration-300 ${isSidebarCollapsed ? '' : 'rotate-180'}`}
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                        >
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                        </svg>
-                        {!isSidebarCollapsed && <span className="ml-2 text-sm">Collapse</span>}
+                        Add Portfolio Investment
                     </button>
-                    {!isSidebarCollapsed && (
-                        <>
-                            <button
-                                onClick={() => {
-                                    openModal('portfolio');
-                                    setIsMobileMenuOpen(false);
-                                }}
-                                className="w-full px-4 py-3 text-left bg-blue-50 hover:bg-blue-100 active:bg-blue-200 text-blue-700 rounded-lg font-medium transition-colors touch-manipulation"
-                            >
-                                Add Portfolio Investment
-                            </button>
-                            <button
-                                onClick={() => {
-                                    openModal('real-estate');
-                                    setIsMobileMenuOpen(false);
-                                }}
-                                className="w-full px-4 py-3 text-left bg-green-50 hover:bg-green-100 active:bg-green-200 text-green-700 rounded-lg font-medium transition-colors touch-manipulation"
-                            >
-                                Add Real Estate Investment
-                            </button>
-                            <button
-                                onClick={() => {
-                                    openModal('loan');
-                                    setIsMobileMenuOpen(false);
-                                }}
-                                className="w-full px-4 py-3 text-left bg-red-50 hover:bg-red-100 active:bg-red-200 text-red-700 rounded-lg font-medium transition-colors touch-manipulation"
-                            >
-                                Add Loan
-                            </button>
-                        </>
-                    )}
-                    {isSidebarCollapsed && (
-                        <>
-                            <button
-                                onClick={() => {
-                                    openModal('portfolio');
-                                    setIsMobileMenuOpen(false);
-                                }}
-                                className="w-10 h-10 bg-blue-50 hover:bg-blue-100 active:bg-blue-200 text-blue-700 rounded-lg transition-colors flex items-center justify-center touch-manipulation"
-                                title="Add Portfolio Investment"
-                            >
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                                </svg>
-                            </button>
-                            <button
-                                onClick={() => {
-                                    openModal('real-estate');
-                                    setIsMobileMenuOpen(false);
-                                }}
-                                className="w-10 h-10 bg-green-50 hover:bg-green-100 active:bg-green-200 text-green-700 rounded-lg transition-colors flex items-center justify-center touch-manipulation"
-                                title="Add Real Estate Investment"
-                            >
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                                </svg>
-                            </button>
-                            <button
-                                onClick={() => {
-                                    openModal('loan');
-                                    setIsMobileMenuOpen(false);
-                                }}
-                                className="w-10 h-10 bg-red-50 hover:bg-red-100 active:bg-red-200 text-red-700 rounded-lg transition-colors flex items-center justify-center touch-manipulation"
-                                title="Add Loan"
-                            >
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                            </button>
-                        </>
-                    )}
+                    <button
+                        onClick={() => {
+                            openModal('real-estate');
+                            setIsMobileMenuOpen(false);
+                        }}
+                        className="w-full px-4 py-3.5 text-left bg-green-50 hover:bg-green-100 active:bg-green-200 text-green-700 rounded-lg font-medium text-base transition-colors touch-manipulation"
+                    >
+                        Add Real Estate Investment
+                    </button>
+                    <button
+                        onClick={() => {
+                            openModal('loan');
+                            setIsMobileMenuOpen(false);
+                        }}
+                        className="w-full px-4 py-3.5 text-left bg-red-50 hover:bg-red-100 active:bg-red-200 text-red-700 rounded-lg font-medium text-base transition-colors touch-manipulation"
+                    >
+                        Add Loan
+                    </button>
+                    
+                    <div className="mt-2 pt-2 border-t border-gray-200">
+                        <button
+                            onClick={() => {
+                                setIsHelpGuideOpen(true);
+                                setIsMobileMenuOpen(false);
+                            }}
+                            className="w-full px-4 py-3.5 text-left bg-transparent hover:bg-gray-50 active:bg-gray-100 rounded-lg font-medium transition-colors touch-manipulation"
+                        >
+                            <span className="text-base font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
+                                Use me guide
+                            </span>
+                        </button>
+                    </div>
                 </aside>
 
                 {/* Center - Investment List */}
                 <main className="flex-1 overflow-y-auto p-4 sm:p-6">
                     <div className="flex flex-col lg:flex-row items-start gap-4 mb-4">
-                        <div className="flex-1 w-full lg:w-auto">
-                            <AgeCalculator
-                                onYearsToRetirementChange={setYearsToRetirement}
-                                onAgeSetChange={setIsAgeSet}
-                                onCurrencyChange={setSelectedCurrency}
-                                onInflationChange={setInflationRate}
-                            />
-                        </div>
-
                         {/* Total Portfolio Value */}
                         <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg p-4 border border-blue-200 w-full lg:min-w-[240px] lg:w-auto">
                             <div className="flex flex-col gap-3">
                                 <div>
-                                    <span className="text-xs font-medium text-gray-700">Projected Value at Retirement</span>
-                                    <div className="text-2xl font-bold text-green-700">
+                                    <span className="text-sm font-medium text-gray-700">Projected Value at Retirement</span>
+                                    <div className="text-3xl font-bold text-green-700">
                                         {projectedValueAtRetirement === null ? '—' : formatCurrency(projectedValueAtRetirement, selectedCurrency)}
                                     </div>
                                 </div>
 
                                 <div className="pt-2 border-t border-blue-200">
-                                    <span className="text-xs font-medium text-gray-700">In Today&apos;s Money (Adjusted for Inflation)</span>
-                                    <div className="text-xl font-bold text-blue-700">
+                                    <span className="text-sm font-medium text-gray-700">In Today&apos;s Money (Adjusted for Inflation)</span>
+                                    <div className="text-2xl font-bold text-blue-700">
                                         {inflationAdjustedValue === null ? '—' : formatCurrency(inflationAdjustedValue, selectedCurrency)}
                                     </div>
                                 </div>
 
                                 <div className="pt-2 border-t border-blue-200">
-                                    <span className="text-xs font-medium text-gray-700">Total Liability at Retirement</span>
-                                    <div className="text-xl font-bold text-red-700">
+                                    <span className="text-sm font-medium text-gray-700">Total Liability at Retirement</span>
+                                    <div className="text-2xl font-bold text-red-700">
                                         {liabilityAtRetirement === null ? '—' : formatCurrency(liabilityAtRetirement, selectedCurrency)}
                                     </div>
                                 </div>
@@ -354,16 +369,25 @@ export default function Home() {
                                 )}
                             </div>
                         </div>
+                        
                     </div>
 
-                    <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-4">My Investments</h2>
+                    {/* Hidden AgeCalculator for calculations */}
+                    <AgeCalculator 
+                        onYearsToRetirementChange={setYearsToRetirement}
+                        onAgeSetChange={setIsAgeSet}
+                        retirementAge={retirementAge}
+                        dateOfBirth={dateOfBirth}
+                    />
+
+                    <h2 className="text-xl sm:text-2xl font-semibold text-gray-800 mb-6">My Investments</h2>
                     <div className="flex flex-col lg:flex-row gap-4">
                         {/* Left Panel - Investments */}
                         <div className="flex-1 w-full">
                             {investments.length === 0 ? (
                                 <div className="text-center py-12 text-gray-500">
                                     <p>No investments added yet.</p>
-                                    <p className="text-sm mt-2">Click a button on the left to add your first investment.</p>
+                                    <p className="text-base mt-3">Click a button on the left to add your first investment.</p>
                                 </div>
                             ) : (
                                 <div className="space-y-3">
@@ -376,7 +400,7 @@ export default function Home() {
                                                 <div className="flex-1">
                                                     <div className="flex items-center gap-2 mb-2 flex-wrap">
                                                         <span
-                                                            className={`px-2 py-1 text-xs font-semibold rounded ${investment.type === 'portfolio'
+                                                            className={`px-3 py-1.5 text-sm font-semibold rounded ${investment.type === 'portfolio'
                                                                 ? 'bg-blue-100 text-blue-700'
                                                                 : investment.type === 'real-estate'
                                                                     ? 'bg-green-100 text-green-700'
@@ -389,10 +413,17 @@ export default function Home() {
                                                                     ? 'Real Estate'
                                                                     : 'Loan'}
                                                         </span>
-                                                        <h3 className="font-semibold text-gray-900">{investment.name}</h3>
+                                                        <h3 className="text-lg font-semibold text-gray-900">{investment.name}</h3>
                                                         {investment.type === 'portfolio' && (
                                                             <div className="flex items-center gap-2 ml-auto">
-                                                                <span className="text-xs text-gray-500">CAGR:</span>
+                                                                <span className="text-sm text-gray-600 font-medium">CAGR:</span>
+                                                                <button
+                                                                    onClick={() => handleDecrementCAGR(investment.id, investment.cagr)}
+                                                                    className="w-8 h-8 flex items-center justify-center text-base font-bold text-blue-600 border-2 border-gray-300 rounded hover:bg-blue-50 active:bg-blue-100 transition-colors"
+                                                                    title="Decrease by 0.1%"
+                                                                >
+                                                                    −
+                                                                </button>
                                                                 <input
                                                                     type="number"
                                                                     value={investment.cagr}
@@ -402,34 +433,31 @@ export default function Home() {
                                                                             handleUpdateCAGR(investment.id, newCAGR);
                                                                         }
                                                                     }}
-                                                                    className="w-16 px-2 py-1 text-xs font-bold text-blue-600 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                                                                    className="w-20 px-3 py-2 text-sm font-bold text-blue-600 border-2 border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                                                     step="0.1"
                                                                     min="0"
                                                                     max="30"
                                                                 />
-                                                                <span className="text-xs text-gray-500">%</span>
-                                                                <input
-                                                                    type="range"
-                                                                    value={investment.cagr}
-                                                                    onChange={(e) => {
-                                                                        const newCAGR = parseFloat(e.target.value);
-                                                                        if (!isNaN(newCAGR)) {
-                                                                            handleUpdateCAGR(investment.id, newCAGR);
-                                                                        }
-                                                                    }}
-                                                                    className="w-24 h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
-                                                                    style={{
-                                                                        background: `linear-gradient(to right, #2563eb 0%, #2563eb ${((investment.cagr - 0) / 30) * 100}%, #e5e7eb ${((investment.cagr - 0) / 30) * 100}%, #e5e7eb 100%)`
-                                                                    }}
-                                                                    min="0"
-                                                                    max="30"
-                                                                    step="0.1"
-                                                                />
+                                                                <button
+                                                                    onClick={() => handleIncrementCAGR(investment.id, investment.cagr, 30)}
+                                                                    className="w-8 h-8 flex items-center justify-center text-base font-bold text-blue-600 border-2 border-gray-300 rounded hover:bg-blue-50 active:bg-blue-100 transition-colors"
+                                                                    title="Increase by 0.1%"
+                                                                >
+                                                                    +
+                                                                </button>
+                                                                <span className="text-sm text-gray-600 font-medium">%</span>
                                                             </div>
                                                         )}
                                                         {investment.type === 'real-estate' && (
                                                             <div className="flex items-center gap-2 ml-auto">
-                                                                <span className="text-xs text-gray-500">Appreciation:</span>
+                                                                <span className="text-sm text-gray-600 font-medium">Appreciation:</span>
+                                                                <button
+                                                                    onClick={() => handleDecrementCAGR(investment.id, investment.cagr)}
+                                                                    className="w-8 h-8 flex items-center justify-center text-base font-bold text-green-700 border-2 border-gray-300 rounded hover:bg-green-50 active:bg-green-100 transition-colors"
+                                                                    title="Decrease by 0.1%"
+                                                                >
+                                                                    −
+                                                                </button>
                                                                 <input
                                                                     type="number"
                                                                     value={investment.cagr}
@@ -439,38 +467,28 @@ export default function Home() {
                                                                             handleUpdateCAGR(investment.id, newRate);
                                                                         }
                                                                     }}
-                                                                    className="w-16 px-2 py-1 text-xs font-bold text-green-700 border border-gray-300 rounded focus:ring-1 focus:ring-green-500 focus:border-transparent"
+                                                                    className="w-20 px-3 py-2 text-sm font-bold text-green-700 border-2 border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent"
                                                                     step="0.1"
                                                                     min="0"
                                                                     max="25"
                                                                 />
-                                                                <span className="text-xs text-gray-500">%</span>
-                                                                <input
-                                                                    type="range"
-                                                                    value={investment.cagr}
-                                                                    onChange={(e) => {
-                                                                        const newRate = parseFloat(e.target.value);
-                                                                        if (!isNaN(newRate)) {
-                                                                            handleUpdateCAGR(investment.id, newRate);
-                                                                        }
-                                                                    }}
-                                                                    className="w-24 h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
-                                                                    style={{
-                                                                        background: `linear-gradient(to right, #16a34a 0%, #16a34a ${((investment.cagr - 0) / 25) * 100}%, #e5e7eb ${((investment.cagr - 0) / 25) * 100}%, #e5e7eb 100%)`
-                                                                    }}
-                                                                    min="0"
-                                                                    max="25"
-                                                                    step="0.1"
-                                                                />
+                                                                <button
+                                                                    onClick={() => handleIncrementCAGR(investment.id, investment.cagr, 25)}
+                                                                    className="w-8 h-8 flex items-center justify-center text-base font-bold text-green-700 border-2 border-gray-300 rounded hover:bg-green-50 active:bg-green-100 transition-colors"
+                                                                    title="Increase by 0.1%"
+                                                                >
+                                                                    +
+                                                                </button>
+                                                                <span className="text-sm text-gray-600 font-medium">%</span>
                                                             </div>
                                                         )}
                                                     </div>
                                                     {investment.type === 'loan' ? (
                                                         <>
-                                                            <p className="text-lg font-bold text-red-700">
+                                                            <p className="text-xl font-bold text-red-700">
                                                                 {formatCurrency(investment.loanAmount || 0, selectedCurrency)}
                                                             </p>
-                                                            <div className="flex items-center gap-4 mt-1 text-sm">
+                                                            <div className="flex items-center gap-4 mt-2 text-base">
                                                                 <span className="text-gray-500">
                                                                     Interest Rate: <span className="font-semibold text-gray-700">{investment.loanInterestRate}%</span>
                                                                 </span>
@@ -483,7 +501,7 @@ export default function Home() {
                                                             </div>
                                                             {investment.loanAmount !== undefined && investment.loanInterestRate !== undefined &&
                                                                 investment.loanTermYears !== undefined && (
-                                                                    <p className="text-sm text-red-600 mt-1">
+                                                                    <p className="text-base text-red-600 mt-2">
                                                                         Remaining: {formatCurrency(
                                                                             calculateRemainingLoanBalance(
                                                                                 investment.loanAmount,
@@ -498,14 +516,29 @@ export default function Home() {
                                                         </>
                                                     ) : (
                                                         <>
-                                                            <p className="text-lg font-bold text-gray-800">
+                                                            <p className="text-xl font-bold text-gray-800">
                                                                 {formatCurrency(investment.amount, selectedCurrency)}
                                                             </p>
-                                                            <div className="flex items-center gap-4 mt-1 text-sm">
+                                                            <div className="flex items-center gap-4 mt-2 text-base">
                                                                 {investment.type !== 'portfolio' && investment.type !== 'real-estate' && (
-                                                                    <span className="text-gray-500">
-                                                                        CAGR: <span className="font-semibold text-gray-700">{investment.cagr}%</span>
-                                                                    </span>
+                                                                    <div className="flex items-center gap-1">
+                                                                        <span className="text-gray-500">CAGR:</span>
+                                                                        <button
+                                                                            onClick={() => handleDecrementCAGR(investment.id, investment.cagr)}
+                                                                            className="w-8 h-8 flex items-center justify-center text-base font-bold text-gray-700 border-2 border-gray-300 rounded hover:bg-gray-50 active:bg-gray-100 transition-colors"
+                                                                            title="Decrease by 0.1%"
+                                                                        >
+                                                                            −
+                                                                        </button>
+                                                                        <span className="font-semibold text-gray-700 w-12 text-center">{investment.cagr}%</span>
+                                                                        <button
+                                                                            onClick={() => handleIncrementCAGR(investment.id, investment.cagr, 30)}
+                                                                            className="w-8 h-8 flex items-center justify-center text-base font-bold text-gray-700 border-2 border-gray-300 rounded hover:bg-gray-50 active:bg-gray-100 transition-colors"
+                                                                            title="Increase by 0.1%"
+                                                                        >
+                                                                            +
+                                                                        </button>
+                                                                    </div>
                                                                 )}
                                                                 {investment.type === 'real-estate' && (
                                                                     <span className="text-gray-500">
@@ -519,14 +552,14 @@ export default function Home() {
                                                 <div className="flex gap-2 sm:ml-4 mt-2 sm:mt-0">
                                                     <button
                                                         onClick={() => handleEditInvestment(investment)}
-                                                        className="flex-1 sm:flex-none px-4 py-2.5 text-sm font-medium text-blue-600 hover:text-blue-700 active:bg-blue-100 hover:bg-blue-50 border border-blue-200 rounded-lg transition-colors touch-manipulation"
+                                                        className="flex-1 sm:flex-none px-5 py-3 text-base font-medium text-blue-600 hover:text-blue-700 active:bg-blue-100 hover:bg-blue-50 border-2 border-blue-200 rounded-lg transition-colors touch-manipulation"
                                                         title="Edit investment"
                                                     >
                                                         Edit
                                                     </button>
                                                     <button
                                                         onClick={() => handleRemoveInvestment(investment.id)}
-                                                        className="flex-1 sm:flex-none px-4 py-2.5 text-sm font-medium text-red-600 hover:text-red-700 active:bg-red-100 hover:bg-red-50 border border-red-200 rounded-lg transition-colors touch-manipulation"
+                                                        className="flex-1 sm:flex-none px-5 py-3 text-base font-medium text-red-600 hover:text-red-700 active:bg-red-100 hover:bg-red-50 border-2 border-red-200 rounded-lg transition-colors touch-manipulation"
                                                         title="Remove investment"
                                                     >
                                                         Remove
@@ -539,9 +572,115 @@ export default function Home() {
                             )}
                         </div>
 
-                        {/* Right Panel - Empty for now */}
-                        <div className="hidden lg:block flex-1 bg-white rounded-lg border border-gray-200 p-4">
-                            {/* Empty panel - reserved for future use */}
+                        {/* Right Panel - Retirement Age Slider */}
+                        <div className="flex-1 bg-white rounded-lg border border-gray-200 p-6">
+                            <div className="flex flex-col h-full">
+                                <h3 className="text-xl font-semibold text-gray-900 mb-6">Retirement Age</h3>
+                                
+                                {/* DOB, Currency, and Inflation inputs */}
+                                <div className="bg-gray-50 rounded-lg p-3 border border-gray-200 mb-6">
+                                    <div className="flex flex-col sm:flex-row items-end gap-2">
+                                        <div className="flex-1 min-w-[140px]">
+                                            <label htmlFor="dob-right" className="block text-sm font-medium text-gray-700 mb-2">
+                                                Date of Birth
+                                            </label>
+                                            <input
+                                                type="date"
+                                                id="dob-right"
+                                                value={dateOfBirth}
+                                                onChange={(e) => setDateOfBirth(e.target.value)}
+                                                className="w-full px-3 py-2 text-sm border-2 border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            />
+                                        </div>
+                                        <div className="w-32">
+                                            <label htmlFor="currency-right" className="block text-sm font-medium text-gray-700 mb-2">
+                                                Currency
+                                            </label>
+                                            <select
+                                                id="currency-right"
+                                                value={selectedCurrency}
+                                                onChange={(e) => setSelectedCurrency(e.target.value)}
+                                                className="w-full px-3 py-2 text-sm border-2 border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            >
+                                                <option value="USD">USD ($)</option>
+                                                <option value="EUR">EUR (€)</option>
+                                                <option value="GBP">GBP (£)</option>
+                                                <option value="INR">INR (₹)</option>
+                                                <option value="JPY">JPY (¥)</option>
+                                                <option value="CAD">CAD (C$)</option>
+                                                <option value="AUD">AUD (A$)</option>
+                                                <option value="CHF">CHF</option>
+                                                <option value="CNY">CNY (¥)</option>
+                                                <option value="SGD">SGD (S$)</option>
+                                            </select>
+                                        </div>
+                                        <div className="w-28">
+                                            <label htmlFor="inflation-right" className="block text-sm font-medium text-gray-700 mb-2">
+                                                Inflation (%)
+                                            </label>
+                                            <input
+                                                type="number"
+                                                id="inflation-right"
+                                                value={inflationRate}
+                                                onChange={(e) => setInflationRate(parseFloat(e.target.value) || 0)}
+                                                className="w-full px-3 py-2 text-sm border-2 border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                placeholder="3.0"
+                                                step="0.1"
+                                                min="0"
+                                                max="20"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div className="flex-1 flex flex-col justify-center items-center">
+                                    <div className="w-full max-w-md">
+                                        <div className="flex items-center gap-4 mb-4">
+                                            <div className="flex flex-col items-center min-w-[100px]">
+                                                <div className="text-7xl font-bold text-blue-600">
+                                                    {retirementAge}
+                                                </div>
+                                                <div className="text-base text-gray-600 font-medium">years</div>
+                                            </div>
+                                            
+                                            <div className="flex-1">
+                                                <input
+                                                    type="range"
+                                                    value={retirementAge}
+                                                    onChange={(e) => {
+                                                        const newAge = parseInt(e.target.value);
+                                                        setRetirementAge(newAge);
+                                                    }}
+                                                    className="w-full h-4 bg-gray-200 rounded-lg appearance-none cursor-pointer slider-large"
+                                                    style={{
+                                                        background: `linear-gradient(to right, #2563eb 0%, #2563eb ${((retirementAge - 50) / 30) * 100}%, #e5e7eb ${((retirementAge - 50) / 30) * 100}%, #e5e7eb 100%)`
+                                                    }}
+                                                    min="50"
+                                                    max="80"
+                                                    step="1"
+                                                />
+                                                
+                                                <div className="flex justify-between text-sm text-gray-600 font-medium mt-2">
+                                                    <span>50</span>
+                                                    <span>65</span>
+                                                    <span>80</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                {yearsToRetirement !== null && (
+                                    <div className="mt-6 pt-6 border-t border-gray-200">
+                                        <div className="text-center">
+                                            <div className="text-base text-gray-600 mb-2 font-medium">Years to Retirement</div>
+                                            <div className="text-3xl font-bold text-blue-700">
+                                                {yearsToRetirement} {yearsToRetirement === 1 ? 'year' : 'years'}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </main>
@@ -559,5 +698,6 @@ export default function Home() {
                 />
             )}
         </div>
+        </>
     );
 }
